@@ -1,0 +1,138 @@
+<?php
+
+/**
+ * @file
+ * Module 'civicrm_fields_extra'.
+ */
+
+/**
+ * Implements hook_entity_extra_field_info().
+ */
+function civicrm_fields_extra_entity_extra_field_info() {
+
+  // Fetch each CT containing civicrm fields.
+  $list = _entity_fields();
+
+  // Extra civicrm fields to be added.
+  $fields = _civicrm_fields();
+
+  foreach ($list as $civicrm_entity => $drupal_entity) {
+    // Check if fields need to be added for civicrm_entity.
+    if (!empty($fields[$civicrm_entity])) {
+
+      foreach ($drupal_entity as $entity => $entity_type) {
+
+        foreach ($entity_type as $type => $field) {
+
+          foreach ($fields[$civicrm_entity] as $key => $value) {
+            $code = "cf_" . $civicrm_entity . "_" . $entity . "_" . $type . "_" . $field . "_" . $key;
+            $extra[$entity][$type]['display'][$code] = [
+              'label' => '[extra] ' . $value,
+              'description' => $value,
+              'weight' => 0,
+            ];
+          }
+        }
+      }
+    }
+  }
+
+  return $extra;
+}
+
+/**
+ * Implements hook_entity_view().
+ */
+function civicrm_fields_extra_entity_view(array &$build, $entity, $display, $view_mode) {
+
+  // Fetch each CT containing civicrm fields.
+  $list = _entity_fields();
+
+  // Extra civicrm fields to be added.
+  $fields = _civicrm_fields();
+
+  foreach ($list as $civicrm_entity => $drupal_entity) {
+    // Check if fields need to be added for civicrm_entity.
+    if (!empty($fields[$civicrm_entity])) {
+
+      foreach ($drupal_entity as $entity_key => $entity_type) {
+        // Check for this entity type.
+        if ($entity_key == $entity->getEntityTypeId()) {
+
+          foreach ($entity_type as $type => $field) {
+
+            // Check for this bundle.
+            if ($type == $entity->bundle()) {
+
+              // Fetch civicrm id from civicrm_field.
+              $id = $entity->get($field)->getString();
+
+              // Check if value is given.
+              if (!empty($id)) {
+                // @todo make 'return' params generic!!!
+                $civicrm_service = \Drupal::service('civicrm.service');
+                $params = [
+                  'return' => ['event_type', 'title', 'start_date', 'end_date'],
+                  'id' => $id,
+                ];
+                // @todo check if api call is succesfull!!!
+                $data = $civicrm_service->api($civicrm_entity, 'GetSingle', $params);
+                foreach ($fields[$civicrm_entity] as $key => $value) {
+                  $code = "cf_" . $civicrm_entity . "_" . $entity_key . "_" . $type . "_" . $field . "_" . $key;
+                  $build[$code] = [
+                    '#type' => 'markup',
+                    '#markup' => $data[$key],
+                  ];
+                }
+              }
+
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Define fields per CiviCRM entity.
+ */
+function _civicrm_fields() {
+  return [
+    'event' => [
+      'event_title' => 'Title',
+    ],
+  ];
+}
+
+/**
+ * Return all Drupal entities containing civicrm_fields.
+ */
+function _entity_fields() {
+  $list = [];
+  $entity_manager = \Drupal::service('entity_field.manager');
+  $field_map = $entity_manager->getFieldMap();
+  foreach ($field_map as $entity_type => $entity_fields) {
+    foreach ($entity_fields as $field_key => $field) {
+      // Find civicrm_field_contact.
+      if ($field['type'] == 'civicrm_field_contact') {
+        foreach ($field['bundles'] as $bundle) {
+          $list['contact'][$entity_type][$bundle] = $field_key;
+        }
+      }
+      // Find civicrm_field_event.
+      if ($field['type'] == 'civicrm_field_event') {
+        foreach ($field['bundles'] as $bundle) {
+          $list['event'][$entity_type][$bundle] = $field_key;
+        }
+      }
+      // Find civicrm_field_contribution_page.
+      if ($field['type'] == 'civicrm_field_contribution_page') {
+        foreach ($field['bundles'] as $bundle) {
+          $list['contribution_page'][$entity_type][$bundle] = $field_key;
+        }
+      }
+    }
+  }
+  return $list;
+}
