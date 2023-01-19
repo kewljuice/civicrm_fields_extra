@@ -2,7 +2,7 @@ name: CiviCRM Fields Extra
 description: Everything functionally related to CiviCRM field(s) extra.
 package: CiviCRM
 type: module
-core_version_requirement: ^8 || ^9
+core_version_requirement: ^8 || ^9 || ^10
 
 dependencies:
   - drupal:civicrm_fields
